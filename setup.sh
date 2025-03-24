@@ -24,10 +24,10 @@ if [ ! -f .github/workflows/backup-repos.yml ]; then
 fi
 
 # Validate GitLab and GitHub tokens if provided
-if [ ! -z "$GITHUB_TOKEN" ] && [ ! -z "$GITHUB_ORG" ]; then
+if [ ! -z "$GH_PAT" ] && [ ! -z "$GH_ORG" ]; then
     echo "Testing GitHub token and organization..."
-    GITHUB_TEST=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: token $GITHUB_TOKEN" \
-        "https://api.github.com/orgs/$GITHUB_ORG")
+    GITHUB_TEST=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: token $GH_PAT" \
+        "https://api.github.com/orgs/$GH_ORG")
     
     if [ "$GITHUB_TEST" -eq 200 ]; then
         echo "✅ GitHub token and organization are valid."
@@ -36,10 +36,10 @@ if [ ! -z "$GITHUB_TOKEN" ] && [ ! -z "$GITHUB_ORG" ]; then
     fi
 fi
 
-if [ ! -z "$GITLAB_TOKEN" ] && [ ! -z "$GITLAB_GROUP_ID" ]; then
+if [ ! -z "$GL_TOKEN" ] && [ ! -z "$GL_GROUP_ID" ]; then
     echo "Testing GitLab token and group..."
-    GITLAB_TEST=$(curl -s -o /dev/null -w "%{http_code}" -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-        "https://gitlab.com/api/v4/groups/$GITLAB_GROUP_ID")
+    GITLAB_TEST=$(curl -s -o /dev/null -w "%{http_code}" -H "PRIVATE-TOKEN: $GL_TOKEN" \
+        "https://gitlab.com/api/v4/groups/$GL_GROUP_ID")
     
     if [ "$GITLAB_TEST" -eq 200 ]; then
         echo "✅ GitLab token and group are valid."
@@ -52,8 +52,8 @@ echo "Setup complete. Now you need to:"
 echo "1. Add the necessary script content to scripts/backup-repos.sh"
 echo "2. Add the workflow content to .github/workflows/backup-repos.yml"
 echo "3. Add the following secrets to your GitHub repository:"
-echo "   - GITHUB_TOKEN_BACKUP (a GitHub PAT with repo access)"
-echo "   - GITHUB_ORG (Your GitHub organization name)"
-echo "   - GITLAB_TOKEN (Your GitLab PAT)"
-echo "   - GITLAB_GROUP (Your GitLab group name)"
-echo "   - GITLAB_GROUP_ID (Your GitLab group ID)"
+echo "   - GH_PAT_BACKUP (a GitHub PAT with repo access)"
+echo "   - GH_ORG (Your GitHub organization name)"
+echo "   - GL_TOKEN (Your GitLab PAT)"
+echo "   - GL_GROUP (Your GitLab group name)"
+echo "   - GL_GROUP_ID (Your GitLab group ID)"

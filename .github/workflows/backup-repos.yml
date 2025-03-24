@@ -21,11 +21,11 @@ jobs:
       - name: Run backup script
         run: ./scripts/backup-repos.sh
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN_BACKUP }}
-          GITHUB_ORG: ${{ secrets.GITHUB_ORG }}
-          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
-          GITLAB_GROUP: ${{ secrets.GITLAB_GROUP }}
-          GITLAB_GROUP_ID: ${{ secrets.GITLAB_GROUP_ID }}
+          GH_PAT: ${{ secrets.GH_PAT_BACKUP }}
+          GH_ORG: ${{ secrets.GH_ORG }}
+          GL_TOKEN: ${{ secrets.GL_TOKEN }}
+          GL_GROUP: ${{ secrets.GL_GROUP }}
+          GL_GROUP_ID: ${{ secrets.GL_GROUP_ID }}
 
       - name: Upload backup report
         uses: actions/upload-artifact@v3
