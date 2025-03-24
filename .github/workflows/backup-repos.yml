@@ -1,0 +1,35 @@
+name: Backup Repositories to GitLab
+
+on:
+  schedule:
+    - cron: '0 0 * * 0'  # Run weekly at midnight on Sunday
+  workflow_dispatch:     # Allow manual trigger
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup backup environment
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq curl git
+          chmod +x ./scripts/backup-repos.sh
+
+      - name: Run backup script
+        run: ./scripts/backup-repos.sh
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN_BACKUP }}
+          GITHUB_ORG: ${{ secrets.GITHUB_ORG }}
+          GITLAB_TOKEN: ${{ secrets.GITLAB_TOKEN }}
+          GITLAB_GROUP: ${{ secrets.GITLAB_GROUP }}
+          GITLAB_GROUP_ID: ${{ secrets.GITLAB_GROUP_ID }}
+
+      - name: Upload backup report
+        uses: actions/upload-artifact@v3
+        with:
+          name: backup-report
+          path: backup-report.txt
+          retention-days: 7
