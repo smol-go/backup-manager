@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Setup backup environment
         run: |
@@ -28,8 +28,9 @@ jobs:
           GL_GROUP_ID: ${{ secrets.GL_GROUP_ID }}
 
       - name: Upload backup report
-        uses: actions/upload-artifact@v3
+        if: always()  # This ensures the artifact is uploaded even if previous steps fail
+        uses: actions/upload-artifact@v4
         with:
           name: backup-report
-          path: backup-report.txt
+          path: backup-report/backup-report.txt
           retention-days: 7
