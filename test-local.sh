@@ -15,7 +15,8 @@ source "$ENV_FILE"
 set +a
 
 # Check if required environment variables are set
-REQUIRED_VARS=("GH_PAT" "GH_ORG" "GL_TOKEN" "GL_GROUP" "GL_GROUP_ID")
+REQUIRED_VARS=("GH_PAT" "GH_ORG" "GL_TOKEN" "GL_GROUP" "GL_GROUP_ID" 
+               "AWS_ACCESS_KEY_ID" "AWS_SECRET_ACCESS_KEY" "AWS_REGION" "S3_BUCKET")
 for var in "${REQUIRED_VARS[@]}"; do
     if [ -z "${!var}" ]; then
         echo "Error: $var is not set in the .env file."
@@ -56,11 +57,11 @@ CREATE_RESPONSE=$(curl -s -X POST -H "PRIVATE-TOKEN: $GL_TOKEN" \
 -H "Content-Type: application/json" \
 "https://gitlab.com/api/v4/projects" \
 -d "{
-\"name\": \"$TEMP_PROJECT_NAME\",
-\"namespace_id\": $GL_GROUP_ID,
-\"visibility\": \"private\",
-\"description\": \"Temporary test project\"
- }")
+    \"name\": \"$TEMP_PROJECT_NAME\",
+    \"namespace_id\": $GL_GROUP_ID,
+    \"visibility\": \"private\",
+    \"description\": \"Temporary test project\"
+}")
 TEMP_PROJECT_ID=$(echo $CREATE_RESPONSE | jq -r '.id')
 if [ "$TEMP_PROJECT_ID" == "null" ] || [ -z "$TEMP_PROJECT_ID" ]; then
     echo "❌ Failed to create test project in GitLab."
@@ -69,7 +70,6 @@ if [ "$TEMP_PROJECT_ID" == "null" ] || [ -z "$TEMP_PROJECT_ID" ]; then
     exit 1
 else
     echo "✅ Successfully created test project in GitLab: $TEMP_PROJECT_NAME (ID: $TEMP_PROJECT_ID)"
-    
     # Clean up the test project
     echo "Deleting test project..."
     curl -s -X DELETE -H "PRIVATE-TOKEN: $GL_TOKEN" \
@@ -77,5 +77,53 @@ else
     echo "✅ Test project deleted."
 fi
 
-echo -e "\nAll tests passed! Your configuration appears to be working correctly."
-echo "You can now set up the GitHub Actions workflow."
+# Test AWS S3 configuration
+echo -e "\nTesting AWS S3 configuration..."
+
+# Verify AWS CLI is installed
+if ! command -v aws &> /dev/null; then
+    echo "❌ AWS CLI is not installed. Please install it first."
+    exit 1
+fi
+
+# Configure AWS credentials
+aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID"
+aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY"
+aws configure set default.region "$AWS_REGION"
+
+# Test S3 bucket listing
+echo "Checking S3 bucket access..."
+S3_LIST_TEST=$(aws s3 ls "s3://$S3_BUCKET" 2>&1)
+if [ $? -ne 0 ]; then
+    echo "❌ Failed to list S3 bucket contents."
+    echo "Error: $S3_LIST_TEST"
+    exit 1
+fi
+
+# Test S3 write and delete permissions
+echo "Testing S3 write and delete permissions..."
+TEMP_TEST_FILE="test-backup-$(date +%s).txt"
+echo "Backup test file" > "$TEMP_TEST_FILE"
+
+# Try to upload the file
+aws s3 cp "$TEMP_TEST_FILE" "s3://$S3_BUCKET/$TEMP_TEST_FILE"
+if [ $? -ne 0 ]; then
+    echo "❌ Failed to upload test file to S3 bucket."
+    rm "$TEMP_TEST_FILE"
+    exit 1
+fi
+
+# Try to delete the uploaded file
+aws s3 rm "s3://$S3_BUCKET/$TEMP_TEST_FILE"
+if [ $? -ne 0 ]; then
+    echo "❌ Failed to delete test file from S3 bucket."
+    rm "$TEMP_TEST_FILE"
+    exit 1
+fi
+
+# Clean up local test file
+rm "$TEMP_TEST_FILE"
+
+echo -e "\n✅ All tests passed successfully!"
+echo "Your GitHub, GitLab, and AWS configurations are working correctly."
+echo "You can now proceed with setting up the backup workflow."
