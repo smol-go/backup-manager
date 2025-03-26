@@ -1,9 +1,10 @@
 #!/bin/bash
 
 set -e
-echo "Starting GitHub organization backup to GitLab..."
+echo "Starting GitHub organization backup to GitLab and Amazon S3..."
 echo "GitHub Organization: $GH_ORG"
 echo "GitLab Group: $GL_GROUP"
+echo "S3 Bucket: $S3_BUCKET"
 
 # Create backup report file
 mkdir -p backup-report
@@ -13,13 +14,27 @@ touch backup-report.txt
 git config --global user.name "GitHub Backup Bot"
 git config --global user.email "backup-bot@example.com"
 
+# Install AWS CLI if not already present
+if ! command -v aws &> /dev/null; then
+    echo "Installing AWS CLI..."
+    curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    unzip awscliv2.zip
+    sudo ./aws/install
+    rm -rf aws awscliv2.zip
+fi
+
+# Configure AWS credentials
+aws configure set aws_access_key_id "$AWS_ACCESS_KEY_ID"
+aws configure set aws_secret_access_key "$AWS_SECRET_ACCESS_KEY"
+aws configure set default.region "$AWS_REGION"
+
 # Get list of all repositories from GitHub organization
 echo "Fetching repository list from GitHub..."
 REPOS=$(curl -s -H "Authorization: token $GH_PAT" \
     "https://api.github.com/orgs/$GH_ORG/repos?per_page=100" | \
     jq -r '.[].name')
 
-# For each repository, create or update backup in GitLab
+# For each repository, create or update backup in GitLab and S3
 for REPO in $REPOS; do
     echo "-----------------------------------------"
     echo "Processing repository: $REPO"
@@ -104,10 +119,27 @@ for REPO in $REPOS; do
     git push -f gitlab $PRIMARY_BRANCH:main
     
     if [ $? -eq 0 ]; then
-        echo "Successfully backed up $REPO" >> backup-report.txt
+        echo "Successfully backed up $REPO to GitLab" >> backup-report.txt
     else
         echo "ERROR: Failed to push $REPO to GitLab" >> backup-report.txt
     fi
+    
+    # Backup to Amazon S3
+    echo "Backing up to Amazon S3..."
+    BACKUP_FILENAME="${REPO}-$(date +"%Y%m%d").tar.gz"
+    tar -czvf "$BACKUP_FILENAME" .
+    
+    # Upload to S3 with date-based versioning
+    aws s3 cp "$BACKUP_FILENAME" "s3://$S3_BUCKET/$GH_ORG/$REPO/$BACKUP_FILENAME"
+    
+    if [ $? -eq 0 ]; then
+        echo "Successfully backed up $REPO to S3" >> backup-report.txt
+    else
+        echo "ERROR: Failed to backup $REPO to S3" >> backup-report.txt
+    fi
+    
+    # Clean up local backup file
+    rm "$BACKUP_FILENAME"
     
     # Clean up
     cd ../..
